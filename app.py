@@ -1,11 +1,15 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from pyngrok import ngrok
+import threading
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import os
+from flask_cors import CORS
 
 offload_dir = "/content/offload"
 os.makedirs(offload_dir, exist_ok=True)
+
+ngrok.set_auth_token("30SkcewFprCQobQqAEeRvYHPx6R_21fZkyVtGCAeBKRekKtXn")
 
 app = Flask(__name__)
 CORS(app, resources={r"/chat": {"origins": "*"}})
@@ -23,19 +27,7 @@ model = AutoModelForCausalLM.from_pretrained(
 def generate_response(message):
     prompt = f"[INST] <<sys>>\nHi! I am your AI assistant specializing in Traditional Chinese Medicine.\n<</sys>>\n\n{message} [/INST]"
     inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
-
-    output = model.generate(
-        input_ids=inputs.input_ids,
-        attention_mask=inputs.attention_mask,
-        max_new_tokens=300,
-        temperature=0.7,
-        top_p=0.9,
-        top_k=50,
-        repetition_penalty=1.2,
-        do_sample=True,
-        pad_token_id=tokenizer.eos_token_id
-    )
-
+    output = model.generate(**inputs, max_new_tokens=300, do_sample=True, top_p=0.95, temperature=0.7)
     response = tokenizer.decode(output[0], skip_special_tokens=True)
 
     if '[/INST]' in response:
@@ -51,11 +43,14 @@ def home():
 def chat():
     data = request.get_json()
     print("✅ Requête reçue :", data)
-    user_message = data.get("message", "")
-    reply = generate_response(user_message)
+    user_msg = data.get("message", "")
+    reply = generate_response(user_msg)
     print("✅ Réponse générée :", reply)
     return jsonify({"reply": reply})
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+def run():
+    app.run(port=5000)
+
+threading.Thread(target=run).start()
+public_url = ngrok.connect(5000)
+print(" URL publique :", public_url)
