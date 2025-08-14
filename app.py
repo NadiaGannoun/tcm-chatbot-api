@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify
 from pyngrok import ngrok
 import threading
@@ -9,12 +10,16 @@ from flask_cors import CORS
 offload_dir = "/content/offload"
 os.makedirs(offload_dir, exist_ok=True)
 
-ngrok.set_auth_token("30SkcewFprCQobQqAEeRvYHPx6R_21fZkyVtGCAeBKRekKtXn")
+ngrok.set_auth_token("30SkcewFprCQobQqAEeRvYHPx6R_21fZkyVtGCAeBKRekKtXn")  
 
 app = Flask(__name__)
 CORS(app, resources={r"/chat": {"origins": "*"}})
 
-model_path = "/content/drive/MyDrive/results/checkpoint-1690"
+model_path = "./merged_model/merged_model"
+
+
+
+
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 model = AutoModelForCausalLM.from_pretrained(
@@ -29,11 +34,7 @@ def generate_response(message):
     inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
     output = model.generate(**inputs, max_new_tokens=300, do_sample=True, top_p=0.95, temperature=0.7)
     response = tokenizer.decode(output[0], skip_special_tokens=True)
-
-    if '[/INST]' in response:
-        return response.split('[/INST]')[-1].strip()
-    else:
-        return response.strip()
+    return response.split('[/INST]')[-1].strip() if '[/INST]' in response else response.strip()
 
 @app.route('/', methods=['GET'])
 def home():
@@ -49,8 +50,9 @@ def chat():
     return jsonify({"reply": reply})
 
 def run():
-    app.run(port=5000)
+    app.run(host="0.0.0.0", port=5000)
 
-threading.Thread(target=run).start()
-public_url = ngrok.connect(5000)
-print(" URL publique :", public_url)
+if __name__ == "__main__":
+    threading.Thread(target=run).start()
+    public_url = ngrok.connect(5000)
+    print(" URL publique :", public_url)
