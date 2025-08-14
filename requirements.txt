@@ -1,4 +1,6 @@
 flask
-flask-cors
 transformers
 torch
+flask-cors
+pyngrok
+accelerate
